@@ -11,5 +11,5 @@ at runtime using the getpass library.
 """
 
 # Your WRDS username. Replace 'your_username' with your actual WRDS username.
-WRDS_USERNAME = "jamesemp"
+WRDS_USERNAME = "your_username"
     
