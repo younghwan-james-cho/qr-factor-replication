@@ -17,3 +17,6 @@ data/
 
 # OS-specific files
 .DS_Store
+
+# Configuration files with sensitive data
+config/wrds_config.py
