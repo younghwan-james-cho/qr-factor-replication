@@ -1,0 +1,15 @@
+# config/wrds_config.py
+"""
+Configuration file for Wharton Research Data Services (WRDS) access.
+
+This file stores the username for connecting to the WRDS database.
+Storing configuration variables separately from the main application logic
+is a professional best practice that improves security and maintainability.
+
+The password is not stored here and will be prompted for securely
+at runtime using the getpass library.
+"""
+
+# Your WRDS username. Replace 'your_username' with your actual WRDS username.
+WRDS_USERNAME = "jamesemp"
+    
