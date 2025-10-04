@@ -1,0 +1,19 @@
+# Python Environments & Cache
+__pycache__/
+*.pyc
+env/
+venv/
+.env
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints
+
+# Data Files - CRITICAL: Never commit large data files to Git
+data/
+
+# IDE & Editor Config
+.idea/
+.vscode/
+
+# OS-specific files
+.DS_Store
