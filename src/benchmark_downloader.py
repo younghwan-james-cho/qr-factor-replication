@@ -1,7 +1,7 @@
-# src/data_ingestion.py
+# src/benchmark_downloader.py
 """
-Functions for downloading the firm-level characteristics used for factor construction
-from the Wharton Research Data Services (WRDS) JKP database.
+Functions for downloading the pre-computed benchmark factor portfolios from the
+Wharton Research Data Services (WRDS) JKP database.
 """
 
 import wrds
@@ -16,24 +16,23 @@ except ImportError:
     WRDS_USERNAME = None
 
 
-def download_jkp_char_data(
-    characteristics: List[str],
+def download_jkp_benchmark_factors(
+    characteristic_names: List[str],
     output_path: Path,
     wrds_username: str = WRDS_USERNAME,
 ) -> None:
     """
-    Connects to WRDS and downloads specified firm characteristics data for US stocks
-    from the JKP global factor database ('contrib.global_factor').
+    Connects to WRDS and downloads the pre-computed monthly factor returns for a
+    given list of characteristics for US stocks.
 
-    This function applies the standard JKP screens for professional-grade research as
-    outlined in their documentation.
+    This data is sourced from the 'contrib.global_factors_monthly' table.
 
     Args:
-        characteristics (List[str]): A list of characteristic column names to download (e.g., ['be_me']).
+        characteristic_names (List[str]): List of characteristics to download benchmarks for (e.g., ['be_me']).
         output_path (Path): The full path where the downloaded data will be saved.
         wrds_username (str): The username for the WRDS connection.
     """
-    print("--- Starting JKP Characteristic Data Download ---")
+    print("--- Starting JKP Benchmark Factor Download ---")
 
     if not wrds_username or wrds_username == "your_username":
         print("Error: WRDS_USERNAME not set in config/wrds_config.py")
@@ -50,28 +49,21 @@ def download_jkp_char_data(
         return
 
     # --- Define the SQL Query ---
-    # Core columns are always downloaded for identification, weighting, and returns.
-    core_cols = ["eom", "id", "permno", "size_grp", "me", "ret_exc_lead1m"]
-
-    unique_chars = [char for char in characteristics if char not in core_cols]
-    all_cols = core_cols + unique_chars
-    columns_str = ", ".join(all_cols)
-
-    # Corrected f-string syntax
+    # The 'in' clause allows us to download multiple factors at once if needed in the future.
+    char_list_str = "('" + "', '".join(characteristic_names) + "')"
+    
+    # CORRECTED TABLE NAME: from 'contrib.global_factor_returns_monthly' to 'contrib.global_factors_monthly'
     query = f"""
-        SELECT {columns_str}
-        FROM contrib.global_factor
+        SELECT eom, characteristic, factor_return
+        FROM contrib.global_factor_returns_monthly
         WHERE
-            excntry = 'USA' AND
-            common = 1 AND
-            exch_main = 1 AND
-            primary_sec = 1 AND
-            obs_main = 1
+            characteristic IN {char_list_str} AND
+            excntry = 'USA'
     """
 
     # --- Execute the query and download the data ---
     try:
-        print(f"Executing SQL query for characteristics: {characteristics}...")
+        print(f"Executing SQL query for benchmark factors: {characteristic_names}...")
         pandas_df = db.raw_sql(query, date_cols=["eom"])
         print("Query executed successfully.")
         db.close()
@@ -93,17 +85,19 @@ def download_jkp_char_data(
         print(f"Failed to convert or save data: {e}")
         return
 
-    print("--- Characteristic Data Download Complete ---")
+    print("--- Benchmark Data Download Complete ---")
 
 
 if __name__ == "__main__":
-    # This block allows the script to be run directly to download data for our HML project.
+    # This block allows the script to be run directly to download the HML benchmark.
     project_root = Path(__file__).resolve().parent.parent
-    output_file_path = project_root / "data" / "raw" / "jkp_hml_char_data_usa.parquet"
-
-    chars_to_download = ["be_me"]
-
-    download_jkp_char_data(
-        characteristics=chars_to_download,
+    output_file_path = project_root / "data" / "raw" / "jkp_hml_benchmark_usa.parquet"
+    
+    # For this project, we only need the benchmark for the 'be_me' factor
+    benchmarks_to_download = ["be_me"]
+    
+    download_jkp_benchmark_factors(
+        characteristic_names=benchmarks_to_download,
         output_path=output_file_path,
     )
+
