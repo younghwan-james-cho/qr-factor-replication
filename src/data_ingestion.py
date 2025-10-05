@@ -7,11 +7,13 @@ import logging
 import sys
 from pathlib import Path
 from typing import List, Optional
+import datetime
 
 import polars as pl
 import wrds
 
-# Import sensitive configuration.
+# Import settings from our central config files
+from config import settings
 try:
     from config.wrds_config import WRDS_USERNAME
 except ImportError:
@@ -58,13 +60,13 @@ def download_jkp_char_data(
         db = wrds.Connection(wrds_username=wrds_username)
         logger.info("Successfully connected to WRDS.")
 
-        core_cols = ["eom", "id", "permno", "crsp_exchcd", "size_grp", "me", "ret_exc_lead1m"]
+        # Add 'source_crsp' and 'size_grp' for winsorization and screening.
+        core_cols = ["eom", "id", "permno", "crsp_exchcd", "source_crsp", "size_grp", "me", "ret_exc_lead1m"]
         
-        # Ensure the list of all columns is unique.
-        all_cols = list(dict.fromkeys(core_cols + characteristics))
+        unique_chars = sorted(list(set(characteristics)))
+        all_cols = list(dict.fromkeys(core_cols + unique_chars))
         columns_str = ", ".join(f'"{c}"' for c in all_cols)
         
-        # Build the SQL filter string.
         filters = [f"excntry = '{country}'"]
         if filter_common: filters.append("common = 1")
         if filter_exch_main: filters.append("exch_main = 1")
@@ -74,7 +76,7 @@ def download_jkp_char_data(
         filters_str = "\n            AND ".join(filters)
 
         query = f"SELECT {columns_str} FROM contrib.global_factor WHERE {filters_str}"
-        logger.info(f"Executing query for characteristics: {characteristics}")
+        logger.info(f"Executing query for characteristics: {unique_chars}")
         
         pandas_df = db.raw_sql(query, date_cols=["eom"])
         logger.info("Query executed successfully. Fetched %d rows and %d columns.", pandas_df.shape[0], pandas_df.shape[1])
@@ -97,3 +99,23 @@ def download_jkp_char_data(
         raise e
 
     logger.info("--- Characteristic Data Download Complete ---")
+
+if __name__ == "__main__":
+    end_date_str = datetime.date.today().strftime('%Y-%m-%d')
+    start_fname = datetime.datetime.strptime(settings.START_DATE_STR, '%Y-%m-%d').strftime('%Y%m')
+    end_fname = datetime.datetime.strptime(end_date_str, '%Y-%m-%d').strftime('%Y%m')
+    output_filename = f"jkp_char_usa_{start_fname}_{end_fname}.parquet"
+    output_file_path = settings.PROJECT_ROOT / "data" / "raw" / "char" / output_filename
+
+    # Extract the unique characteristics from the full list of factors.
+    characteristics_list = list(set(char for char, _, _ in settings.FACTORS_TO_REPLICATE))
+
+    try:
+        download_jkp_char_data(
+            characteristics=characteristics_list,
+            output_path=output_file_path,
+            start_date=settings.START_DATE_STR,
+        )
+    except Exception:
+        logger.critical("Script execution failed. Please check the logs above for details.")
+        sys.exit(1)
