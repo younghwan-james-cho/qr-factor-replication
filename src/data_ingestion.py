@@ -1,8 +1,8 @@
 # src/data_ingestion.py
-"""
-Functions for downloading firm-level characteristics for factor construction
-from the Wharton Research Data Services (WRDS) JKP database.
-"""
+#
+# Functions for downloading firm-level data from WRDS.
+#
+
 import logging
 import sys
 from pathlib import Path
@@ -11,6 +11,7 @@ from typing import List, Optional
 import polars as pl
 import wrds
 
+# Import sensitive configuration.
 try:
     from config.wrds_config import WRDS_USERNAME
 except ImportError:
@@ -58,10 +59,12 @@ def download_jkp_char_data(
         logger.info("Successfully connected to WRDS.")
 
         core_cols = ["eom", "id", "permno", "crsp_exchcd", "size_grp", "me", "ret_exc_lead1m"]
-        unique_chars = sorted([char for char in characteristics if char not in core_cols])
-        all_cols = core_cols + unique_chars
+        
+        # Ensure the list of all columns is unique.
+        all_cols = list(dict.fromkeys(core_cols + characteristics))
         columns_str = ", ".join(f'"{c}"' for c in all_cols)
         
+        # Build the SQL filter string.
         filters = [f"excntry = '{country}'"]
         if filter_common: filters.append("common = 1")
         if filter_exch_main: filters.append("exch_main = 1")
@@ -71,7 +74,7 @@ def download_jkp_char_data(
         filters_str = "\n            AND ".join(filters)
 
         query = f"SELECT {columns_str} FROM contrib.global_factor WHERE {filters_str}"
-        logger.info(f"Executing query for characteristics: {unique_chars}")
+        logger.info(f"Executing query for characteristics: {characteristics}")
         
         pandas_df = db.raw_sql(query, date_cols=["eom"])
         logger.info("Query executed successfully. Fetched %d rows and %d columns.", pandas_df.shape[0], pandas_df.shape[1])
@@ -94,26 +97,3 @@ def download_jkp_char_data(
         raise e
 
     logger.info("--- Characteristic Data Download Complete ---")
-
-if __name__ == "__main__":
-    import datetime
-    
-    project_root = Path(__file__).resolve().parent.parent
-    start_date_str = '2020-01-01'
-    end_date_str = datetime.date.today().strftime('%Y-%m-%d')
-    start_fname = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').strftime('%Y%m')
-    end_fname = datetime.datetime.strptime(end_date_str, '%Y-%m-%d').strftime('%Y%m')
-    output_filename = f"jkp_char_usa_{start_fname}_{end_fname}.parquet"
-    output_file_path = project_root / "data" / "raw" / "char" / output_filename
-
-    characteristics_to_download = ["be_me", "ope_be", "at_gr1", "ret_12_1", "ret_1_0"]
-
-    try:
-        download_jkp_char_data(
-            characteristics=characteristics_to_download,
-            output_path=output_file_path,
-            start_date=start_date_str,
-        )
-    except Exception:
-        logger.critical("Script execution failed. Please check the logs above for details.")
-        sys.exit(1)

@@ -1,15 +1,17 @@
 # src/validation.py
-"""
-Functions for validating replicated factor returns against benchmark data.
-"""
+#
+# Functions for validating replicated factor returns.
+#
 
 from pathlib import Path
 import polars as pl
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_cumulative_returns(df: pl.DataFrame, factor_name: str, output_dir: Path):
-    """Generates and saves a plot of cumulative factor returns."""
+def plot_cumulative_returns(df: pl.DataFrame, factor_name: str, plot_subdir: str):
+    """
+    Generates and saves a plot of cumulative factor returns into a specific subdirectory.
+    """
     plot_df = df.to_pandas()
     
     plot_df['replicated_cumulative'] = (1 + plot_df[factor_name]).cumprod()
@@ -28,7 +30,13 @@ def plot_cumulative_returns(df: pl.DataFrame, factor_name: str, output_dir: Path
     ax.set_yscale('log')
     
     fig.tight_layout()
-    plot_path = output_dir / f"{factor_name.lower()}_performance_plot.png"
+    
+    output_dir = Path("plots") / plot_subdir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    plot_filename = f"{factor_name.lower()}.png"
+    plot_path = output_dir / plot_filename
+
     fig.savefig(plot_path)
     print(f"Performance plot saved to: {plot_path}")
     plt.close(fig)
@@ -37,9 +45,13 @@ def validate_factor(
     replicated_returns: pl.DataFrame,
     benchmark_path: Path,
     benchmark_factor_name: str,
+    plot_subdir: str,
     correlation_threshold: float = 0.95
-) -> None:
-    """Validates a replicated factor against its benchmark."""
+) -> float | None:
+    """
+    Validates a replicated factor against its benchmark.
+    Returns the correlation value if successful, otherwise None.
+    """
     try:
         benchmark_df = pl.read_csv(benchmark_path, try_parse_dates=True)
         benchmark_factor = benchmark_df.filter(
@@ -47,18 +59,10 @@ def validate_factor(
         ).select(['date', 'ret']).rename({'ret': 'benchmark_ret', 'date': 'eom'})
     except Exception as e:
         print(f"Error loading or processing benchmark data: {e}")
-        return
+        return None
 
-    # --- FINAL FIX: Shift replicated return dates forward by one month ---
-    # Why: Our return for date 't' is for the period t -> t+1. The benchmark
-    # return for date 't+1' is for the period t -> t+1. We must align them
-    # by shifting our date forward before joining.
-    replicated_returns = replicated_returns.with_columns(
-        pl.col('eom').dt.offset_by('1mo')
-    )
-    # --- End of FIX ---
-
-    # Standardize join key data types
+    # Align dates for comparison.
+    replicated_returns = replicated_returns.with_columns(pl.col('eom').dt.offset_by('1mo'))
     replicated_returns = replicated_returns.with_columns(pl.col('eom').cast(pl.Date))
     benchmark_factor = benchmark_factor.with_columns(pl.col('eom').cast(pl.Date))
 
@@ -66,12 +70,11 @@ def validate_factor(
     validation_df = replicated_returns.join(benchmark_factor, on='eom', how='inner').drop_nulls()
 
     if validation_df.height == 0:
-        print("Validation failed: No overlapping dates found between replicated and benchmark data.")
-        return
+        print("Validation failed: No overlapping dates found.")
+        return None
 
     correlation = validation_df.select(pl.corr(replicated_col_name, 'benchmark_ret')).item()
     
-    # --- Print Validation Report ---
     print("\n" + "="*40)
     print(f"      VALIDATION REPORT: {benchmark_factor_name}")
     print("="*40)
@@ -93,6 +96,7 @@ def validate_factor(
     print(summary_stats.transpose(include_header=True, column_names=['Metric']))
     print("="*40 + "\n")
 
-    output_dir = Path("plots")
-    output_dir.mkdir(exist_ok=True)
-    plot_cumulative_returns(validation_df, replicated_col_name, output_dir)
+    plot_cumulative_returns(validation_df, replicated_col_name, plot_subdir)
+    
+    # Return the calculated correlation for the summary table.
+    return correlation

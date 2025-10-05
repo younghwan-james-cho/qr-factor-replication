@@ -1,7 +1,7 @@
 # src/portfolio_construction.py
-"""
-Functions for constructing long-short factor portfolios based on firm characteristics.
-"""
+#
+# Functions for constructing long-short factor portfolios.
+#
 
 import polars as pl
 from pathlib import Path
@@ -17,11 +17,9 @@ def construct_factor_portfolio(
     Constructs a long-short factor portfolio based on a single characteristic,
     supporting multiple weighting schemes.
     """
-    # --- FIX: Define 'base_cols' before using it ---
     base_cols = ['eom', 'permno', 'crsp_exchcd', 'me', 'ret_exc_lead1m']
     all_cols = base_cols + [characteristic]
-    required_cols = list(dict.fromkeys(all_cols)) # Removes duplicates
-    # --- End of FIX ---
+    required_cols = list(dict.fromkeys(all_cols))
     
     char_df = pl.read_parquet(char_data_path, columns=required_cols).drop_nulls(subset=[characteristic, 'me'])
 
