@@ -1,0 +1,4 @@
+matplotlib==3.10.6
+numpy==2.3.3
+polars==1.34.0
+wrds==3.4.0
