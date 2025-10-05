@@ -12,8 +12,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # --- Data Ingestion Settings ---
 # The single source of truth for the analysis start date.
 # START_DATE_STR = '2020-01-01' # setting 1
-# START_DATE_STR = '1963-07-01' # setting 2
-START_DATE_STR = '2000-01-01' # setting 3
+START_DATE_STR = '1963-07-01' # setting 2
+# START_DATE_STR = '2000-01-01' # setting 3
 
 # --- Validation Settings ---
 # The correlation threshold to determine a successful replication.
