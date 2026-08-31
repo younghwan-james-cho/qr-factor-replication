@@ -5,9 +5,12 @@ scope and acceptance checks, delegate tracked-file edits to `luna_implementer`, 
 verify the actual diff and rerun the relevant checks independently.
 
 Do not edit tracked files in the primary thread when `luna_implementer` is available.
-Do not spawn built-in or other custom subagents for implementation. Keep one spawned
-thread open at a time. If no tracked-file change is required, do not spawn a worker.
-If the user explicitly asks to bypass this orchestration, follow that instruction.
+For this workflow, do not spawn built-in or other custom subagents: planning,
+read-only investigation, and verification stay in the primary Sol thread, and only
+`luna_implementer` may be spawned for implementation. Keep one spawned thread open
+at a time. Broader agent topology requires explicit user authorization. If no
+tracked-file change is required, do not spawn a worker. If the user explicitly asks
+to bypass this orchestration, follow that instruction.
 
 Before delegation, send one bounded TASK_PACKET with Outcome, Non-goals, Repository
 evidence, Read set, Write set, Invariants, Acceptance criteria/checks, Forbidden
